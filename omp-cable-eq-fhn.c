@@ -1,3 +1,7 @@
+/* Plot gnuplot
+*   gnuplot plot 'v.dat' w l
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -39,7 +43,7 @@ int main(int argc, char *argv[])
 
     int T, M, N;
 
-    T = 210;
+    T = 80000;
 
     M = T / d_t; // number of points in time
     N = L / d_x; // number of points in space
@@ -68,10 +72,20 @@ int main(int argc, char *argv[])
     }
 
     printf("\n");
+
+    // Check time
+    double start, finish, elapsed;
+    start = omp_get_wtime();
+
     // Explicit Euler
     for (int n = 0; n < M - 1; n++)
     {
-        for (int i = 1; i < N - 1; i++)
+        int i;
+
+        # pragma omp parallel for num_threads(num_threads) default(none) \
+        private(i) shared(n, V, W, N, M, k, A, alpha, epsilon, gamma, d_x, d_t)
+        
+        for (i = 1; i < N - 1; i++)
         {
             V[(n + 1) * N + i] = V[n * N + i] + d_t * ((k * (V[n * N + (i + 1)] - 2 * V[n * N + i] + V[n * N + (i - 1)]) / d_x / d_x) + (A * V[n * N + i] * (1 - V[n * N + i]) * (V[n * N + i] - alpha)) - W[n * N + i]);
             W[(n + 1) * N + i] = W[n * N + i] + d_t * epsilon * (V[(n + 1) * N + i] - gamma * W[n * N + i]);
@@ -81,6 +95,10 @@ int main(int argc, char *argv[])
         V[(n + 1) * N + 0] = V[(n + 1) * N + 1];
         V[(n + 1) * N + (N - 1)] = V[(n + 1) * N + (N - 2)];
     }
+
+    finish = omp_get_wtime();
+    elapsed = finish - start;
+    printf("Elapsed time = %e seconds\n", elapsed);
 
     // Print
     for (int i = M - 4; i < M; i++)
