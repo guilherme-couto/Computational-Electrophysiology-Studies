@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-// Parameters to ajust for TNMP model
+// Parameters to ajust for TNNP model
 double u_o = 0;
 double u_u = 1.58;
 double theta_v = 0.3;
@@ -182,11 +182,11 @@ int main(int argc, char *argv[])
 
     int M = T / delta_t;                // number of points in time
     int N = L / delta_x;                // number of points in space
-    int N_exp = delta_t / delta_t_exp;  // number of points in space for explicit method
+    int M_exp = delta_t / delta_t_exp;  // number of points in space for explicit method
 
     printf("Number of points in time = %d\n", M);
     printf("Number of points in space = %d\n", N);
-    printf("Number of points in space for explicit method = %d\n", N_exp);
+    printf("Number of points in time for explicit method = %d\n", M_exp);
 
     // Parameters
     double *U, *V, *W, *S;
@@ -218,25 +218,70 @@ int main(int argc, char *argv[])
     // Subdiagonal, diagonal and superdiagonal of the tridiagonal matrix (Implicit Method)
     double alpha = (D*delta_t) / (delta_x * delta_x);
     double *a, *b, *c, *x;
-    a = malloc(2 * sizeof(double));     // subdiagonal
-    b = malloc(3 * sizeof(double));     // diagonal
-    c = malloc(2 * sizeof(double));     // superdiagonal
-    x = malloc(3 * sizeof(double));
+    a = malloc((N-1) * sizeof(double));     // subdiagonal
+    b = malloc(N * sizeof(double));         // diagonal
+    c = malloc((N-1) * sizeof(double));     // superdiagonal
+    x = malloc(N * sizeof(double));
 
-    a[0] = -alpha;
-    a[1] = -alpha;
-    b[0] = 1 + 2 * alpha;
-    b[1] = 1 + 2 * alpha;
-    b[2] = 1 + 2 * alpha;
-    c[0] = -alpha;
-    c[1] = -alpha;
+
+    for(int i = 0; i < N; i++)
+    {
+        if (i < N-1)
+        {
+            a[i] = -alpha;
+            c[i] = -alpha;
+        }
+        a[i] = 1 + 2*alpha;
+    }
 
     // Operator splitting method
     for (int n = 0; n < M - 1; n++)
     { 
 
-        int i;
+        int n_exp, i;
+        for (n_exp = 0; n_exp < M_exp; n_exp++)
+        {
+
+            for(i = 1; i < N-1; i++)
+            {
+                if(n == 1000)
+                {
+                    u = 0.325;
+                }
+
+                tau_vminus = (1-H(u, theta_vminus))*tau_v1minus + H(u, theta_vminus)*tau_v2minus;
+                tau_wminus = tau_w1minus + (tau_w2minus-tau_w1minus)*(1+tanh(k_wminus*(u-u_wminus)))/2;
+                tau_so = tau_so1 + (tau_so2-tau_so1)*(1+tanh(k_so*(u-u_so)))/2;
+                tau_s = (1-H(u, theta_w))*tau_s1 + H(u, theta_w)*tau_s2;
+                tau_o = (1-H(u, theta_o))*tau_o1 + H(u, theta_o)*tau_o2;
+
+                J_fi = -v * H(u, theta_v) * (u-theta_v) * (u_u-u) / tau_fi;
+                J_so = (u-u_o) * ((1-H(u, theta_w)) / tau_o) + (H(u, theta_w) / tau_so);
+                J_si = -H(u, theta_w) * w * s / tau_si;
+                J = J_fi + J_so + J_si;
+                
+                v_inf = vnoinf(u, theta_vminus);
+                w_inf = (1-H(u, theta_o))*(1-u/tau_winf) + H(u, theta_o)*w_infstar;
+                
+                du_dt = - J;
+                dv_dt = (1-H(u, theta_v))*(v_inf-v)/tau_vminus - H(u, theta_v)*v/tau_vplus;
+                dw_dt = (1-H(u, theta_w))*(w_inf-w)/tau_wminus - H(u, theta_w)*w/tau_wplus;
+                ds_dt = ((1+tanh(k_s*(u-u_s)))/2 - s)/tau_s;
+                
+                // Update variables
+                u = u + du_dt * delta_t_exp;
+                v = v + dv_dt * delta_t_exp;
+                w = w + dw_dt * delta_t_exp;
+                s = s + ds_dt * delta_t_exp;
+
+            }
+
+
+
+        }
         
+        // REVER --------------------------------------------------
+
         for (i = 1; i < N - 1; i++)
         {
             if (n == 1000)
@@ -248,7 +293,7 @@ int main(int argc, char *argv[])
             // Explicit part: J and ODEs (v, w, s)
             int i_exp;
             
-            for(i_exp = 0; i_exp < N_exp; i_exp++)
+            for(i_exp = 0; i_exp < M_exp; i_exp++)
             {
                 if((n == 0 || n == 1) && i == 1)
                 {
