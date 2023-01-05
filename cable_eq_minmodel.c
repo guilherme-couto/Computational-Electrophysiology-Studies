@@ -153,19 +153,6 @@ int main(int argc, char *argv[])
     }
     printf("File ready\n");
 
-    // Write all information to file
-    FILE *fp2 = NULL;
-    fp2 = fopen("ceq-minmodel-all.txt", "w");
-    t = 0;
-    for (int i = 0; i < M; i++)
-    {
-        for (int j = 0; j < N; j++)
-        {
-            fprintf(fp2, "%lf\n", U[i*N+j]);
-        }
-    }
-    printf("File complete ready\n");
-
     free(U);
     free(V);
     free(W);
