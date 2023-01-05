@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
     U[0] = U[1];
     U[M - 1] = U[M - 2];
 
-
+    // Write to file
     FILE *fp = NULL;
     fp = fopen("minmodel.txt", "w");
     double t = 0;
