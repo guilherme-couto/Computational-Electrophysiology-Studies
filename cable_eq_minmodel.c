@@ -3,6 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 
 // Parameters to reproduce midmyocardial cell
 double u_o = 0;
@@ -99,18 +100,20 @@ int main(int argc, char *argv[])
     // Explicit Euler method
     for (int n = 0; n < M - 1; n++)
     {
-        // Stimulus
-        if(n >= 3000 && n <= 5000)
-        {
-            I_app = 0.5;
-        }
-        else
-        {
-            I_app = 0;
-        }
+       
 
         for (int i = 1; i < N - 1; i++)
         {
+            // Stimulus
+            if(n >= 3000 && n <= 5000 && i > 1 && i < 30)
+            {
+                I_app = 0.5;
+            }
+            else
+            {
+                I_app = 0;
+            }
+
             tau_vminus = (1-H(U[n*N+i], theta_vminus))*tau_v1minus + H(U[n*N+i], theta_vminus)*tau_v2minus;
             tau_wminus = tau_w1minus + (tau_w2minus-tau_w1minus)*(1+tanh(k_wminus*(U[n*N+i]-u_wminus)))/2;
             tau_so = tau_so1 + (tau_so2-tau_so1)*(1+tanh(k_so*(U[n*N+i]-u_so)))/2;
@@ -144,14 +147,39 @@ int main(int argc, char *argv[])
 
     // Write to file simple
     FILE *fp = NULL;
-    fp = fopen("ceq-minmodel.txt", "w");
-    double t = 0;
-    for (int i = 0; i < M; i++)
+    FILE *fp2 = NULL;
+
+    fp = fopen("ceq-minmodel4.txt", "w");
+    fp2 = fopen("ceq-minmodel10.txt", "w");
+    for (int i = 0; i < N; i++)
     {
-        fprintf(fp, "%lf\n", U[4000*N+i]);    
-        t += delta_t;
+        fprintf(fp, "%lf\n", U[4000*N+i]);   
+        fprintf(fp2, "%lf\n", U[10000*N+i]); 
     }
     printf("File ready\n");
+
+    FILE *fp_all = NULL;
+    fp_all = fopen("ceq-minmodel-all.txt", "w");
+    int count = 0;
+    bool tag = false;
+    for (int i = 0; i < M; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            if (i % 100 == 0)
+            {
+                fprintf(fp_all, "%lf\n", U[i*N+j]);
+                tag = true;
+            }
+        }
+        if (tag)
+        {
+            count++;
+            tag = false;
+        }
+        
+    }
+    printf("File complete ready with c = %d\n", count);
 
     free(U);
     free(V);
