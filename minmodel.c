@@ -34,7 +34,7 @@ double tau_si = 3.3849;
 double tau_winf = 0.01;
 double w_infstar = 0.5;
 
-double D = 1.171;   // +- 0.0221 cm^2/s  human ventricular diffusion coefficient
+double D = 1.171; // +- 0.0221 cm^2/s  human ventricular diffusion coefficient
 
 // Standar Heaviside function
 double H(double x, double y)
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     int T = 600;
     double delta_t = 0.001;
 
-    int M = T / delta_t;                // number of points in time
+    int M = T / delta_t; // number of points in time
 
     printf("Number of points in time = %d\n", M);
 
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
     for (int n = 0; n < M - 1; n++)
     {
         // Stimulus
-        if(n >= 3000 && n <= 5000)
+        if (n >= 3000 && n <= 5000)
         {
             I_app = 0.5;
         }
@@ -102,30 +102,30 @@ int main(int argc, char *argv[])
             I_app = 0;
         }
 
-        tau_vminus = (1-H(U[n], theta_vminus))*tau_v1minus + H(U[n], theta_vminus)*tau_v2minus;
-        tau_wminus = tau_w1minus + (tau_w2minus-tau_w1minus)*(1+tanh(k_wminus*(U[n]-u_wminus)))/2;
-        tau_so = tau_so1 + (tau_so2-tau_so1)*(1+tanh(k_so*(U[n]-u_so)))/2;
-        tau_s = (1-H(U[n], theta_w))*tau_s1 + H(U[n], theta_w)*tau_s2;
-        tau_o = (1-H(U[n], theta_o))*tau_o1 + H(U[n], theta_o)*tau_o2;
+        tau_vminus = (1 - H(U[n], theta_vminus)) * tau_v1minus + H(U[n], theta_vminus) * tau_v2minus;
+        tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U[n] - u_wminus))) / 2;
+        tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U[n] - u_so))) / 2;
+        tau_s = (1 - H(U[n], theta_w)) * tau_s1 + H(U[n], theta_w) * tau_s2;
+        tau_o = (1 - H(U[n], theta_o)) * tau_o1 + H(U[n], theta_o) * tau_o2;
 
-        J_fi = -V[n] * H(U[n], theta_v) * (U[n]-theta_v) * (u_u-U[n]) / tau_fi;
-        J_so = (U[n]-u_o) * ((1-H(U[n], theta_w)) / tau_o) + (H(U[n], theta_w) / tau_so);
+        J_fi = -V[n] * H(U[n], theta_v) * (U[n] - theta_v) * (u_u - U[n]) / tau_fi;
+        J_so = (U[n] - u_o) * ((1 - H(U[n], theta_w)) / tau_o) + (H(U[n], theta_w) / tau_so);
         J_si = -H(U[n], theta_w) * W[n] * S[n] / tau_si;
         J = J_fi + J_so + J_si;
-        
+
         v_inf = v_inf_function(U[n], theta_vminus);
-        w_inf = (1-H(U[n], theta_o))*(1-U[n]/tau_winf) + H(U[n], theta_o)*w_infstar;
-        
-        du_dt = - J + I_app;
-        dv_dt = (1-H(U[n], theta_v))*(v_inf-V[n])/tau_vminus - H(U[n], theta_v)*V[n]/tau_vplus;
-        dw_dt = (1-H(U[n], theta_w))*(w_inf-W[n])/tau_wminus - H(U[n], theta_w)*W[n]/tau_wplus;
-        ds_dt = ((1+tanh(k_s*(U[n]-u_s)))/2 - S[n])/tau_s;
+        w_inf = (1 - H(U[n], theta_o)) * (1 - U[n] / tau_winf) + H(U[n], theta_o) * w_infstar;
+
+        du_dt = -J + I_app;
+        dv_dt = (1 - H(U[n], theta_v)) * (v_inf - V[n]) / tau_vminus - H(U[n], theta_v) * V[n] / tau_vplus;
+        dw_dt = (1 - H(U[n], theta_w)) * (w_inf - W[n]) / tau_wminus - H(U[n], theta_w) * W[n] / tau_wplus;
+        ds_dt = ((1 + tanh(k_s * (U[n] - u_s))) / 2 - S[n]) / tau_s;
 
         // Update variables
-        U[n+1] = U[n] + du_dt * delta_t;
-        V[n+1] = V[n] + dv_dt * delta_t;
-        W[n+1] = W[n] + dw_dt * delta_t;
-        S[n+1] = S[n] + ds_dt * delta_t;
+        U[n + 1] = U[n] + du_dt * delta_t;
+        V[n + 1] = V[n] + dv_dt * delta_t;
+        W[n + 1] = W[n] + dw_dt * delta_t;
+        S[n + 1] = S[n] + ds_dt * delta_t;
     }
 
     // Boundary Condition
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     double t = 0;
     for (int i = 0; i < M; i++)
     {
-        fprintf(fp, "%lf\n", U[i]);    
+        fprintf(fp, "%lf\n", U[i]);
         t += delta_t;
     }
     printf("File ready\n");
