@@ -63,16 +63,6 @@ double v_inf_function(double x, double y)
         return 0;
 }
 
-/*
-solves Ax = v where A is a tridiagonal matrix consisting of vectors a, b, c
-x - initially contains the input vector v, and returns the solution x. indexed from 0 to X - 1 inclusive
-X - number of equations (length of vector x)
-a - subdiagonal (means it is the diagonal below the main diagonal), indexed from 1 to X - 1 inclusive
-b - the main diagonal, indexed from 0 to X - 1 inclusive
-c - superdiagonal (means it is the diagonal above the main diagonal), indexed from 0 to X - 2 inclusive
-
-Note 2: We don't check for diagonal dominance, etc.; this is not guaranteed stable
-*/
 double* solve_tridiagonal_in_place_reusable(double *d, int N, double *a, double *b, double *c)
 {
     /* Allocate scratch space. */
@@ -209,6 +199,8 @@ int main(int argc, char *argv[])
 
             for (i = 1; i < N - 1; i++)
             {
+                int step_ni = n * N + i;
+
                 // Stimulus
                 if (n >= 3000 && n <= 5000 && i > 1 && i < 30)
                 {
@@ -219,30 +211,30 @@ int main(int argc, char *argv[])
                     I_app = 0;
                 }
 
-                tau_vminus = (1 - H(U[n * N + i], theta_vminus)) * tau_v1minus + H(U[n * N + i], theta_vminus) * tau_v2minus;
-                tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U[n * N + i] - u_wminus))) / 2;
-                tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U[n * N + i] - u_so))) / 2;
-                tau_s = (1 - H(U[n * N + i], theta_w)) * tau_s1 + H(U[n * N + i], theta_w) * tau_s2;
-                tau_o = (1 - H(U[n * N + i], theta_o)) * tau_o1 + H(U[n * N + i], theta_o) * tau_o2;
+                tau_vminus = (1 - H(U[step_ni], theta_vminus)) * tau_v1minus + H(U[step_ni], theta_vminus) * tau_v2minus;
+                tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U[step_ni] - u_wminus))) / 2;
+                tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U[step_ni] - u_so))) / 2;
+                tau_s = (1 - H(U[step_ni], theta_w)) * tau_s1 + H(U[step_ni], theta_w) * tau_s2;
+                tau_o = (1 - H(U[step_ni], theta_o)) * tau_o1 + H(U[step_ni], theta_o) * tau_o2;
 
-                J_fi = -V[i] * H(U[n * N + i], theta_v) * (U[n * N + i] - theta_v) * (u_u - U[n * N + i]) / tau_fi;
-                J_so = (U[n * N + i] - u_o) * ((1 - H(U[n * N + i], theta_w)) / tau_o) + (H(U[n * N + i], theta_w) / tau_so);
-                J_si = -H(U[n * N + i], theta_w) * W[i] * S[i] / tau_si;
+                J_fi = -V[i] * H(U[step_ni], theta_v) * (U[step_ni] - theta_v) * (u_u - U[step_ni]) / tau_fi;
+                J_so = (U[step_ni] - u_o) * ((1 - H(U[step_ni], theta_w)) / tau_o) + (H(U[step_ni], theta_w) / tau_so);
+                J_si = -H(U[step_ni], theta_w) * W[i] * S[i] / tau_si;
                 J = J_fi + J_so + J_si;
 
-                v_inf = v_inf_function(U[n * N + i], theta_vminus);
-                w_inf = (1 - H(U[n * N + i], theta_o)) * (1 - U[n * N + i] / tau_winf) + H(U[n * N + i], theta_o) * w_infstar;
+                v_inf = v_inf_function(U[step_ni], theta_vminus);
+                w_inf = (1 - H(U[step_ni], theta_o)) * (1 - U[step_ni] / tau_winf) + H(U[step_ni], theta_o) * w_infstar;
 
                 du_dt = -J + I_app;
-                dv_dt = (1 - H(U[n * N + i], theta_v)) * (v_inf - V[i]) / tau_vminus - H(U[n * N + i], theta_v) * V[i] / tau_vplus;
-                dw_dt = (1 - H(U[n * N + i], theta_w)) * (w_inf - W[i]) / tau_wminus - H(U[n * N + i], theta_w) * W[i] / tau_wplus;
-                ds_dt = ((1 + tanh(k_s * (U[n * N + i] - u_s))) / 2 - S[i]) / tau_s;
+                dv_dt = (1 - H(U[step_ni], theta_v)) * (v_inf - V[i]) / tau_vminus - H(U[step_ni], theta_v) * V[i] / tau_vplus;
+                dw_dt = (1 - H(U[step_ni], theta_w)) * (w_inf - W[i]) / tau_wminus - H(U[step_ni], theta_w) * W[i] / tau_wplus;
+                ds_dt = ((1 + tanh(k_s * (U[step_ni] - u_s))) / 2 - S[i]) / tau_s;
 
                 // Update array that will be used as input for the implicit method
-                d[i] = U[n * N + i] + du_dt * delta_t_exp;
+                d[i] = U[step_ni] + du_dt * delta_t_exp;
 
                 // Update variables
-                U[n * N + i] = U[n * N + i] + du_dt * delta_t_exp;
+                U[step_ni] = U[step_ni] + du_dt * delta_t_exp;
                 V[i] = V[i] + dv_dt * delta_t_exp;
                 W[i] = W[i] + dw_dt * delta_t_exp;
                 S[i] = S[i] + ds_dt * delta_t_exp;
