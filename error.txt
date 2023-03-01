@@ -1,0 +1,40 @@
+Error (0.1 and 0.2):
+Euclidean distance = 15.759078
+RMSE = 0.105061
+Mean absolute error = 0.018943
+ED / Norm_ref = 0.080978
+Relative % = 8.097840
+
+
+Error (0.1 and 0.3):
+Euclidean distance = 82.724062
+RMSE = 0.551494
+Mean absolute error = 0.238237
+ED / Norm_ref = 0.425080
+Relative % = 42.507958
+
+
+Error (0.1 and 0.4):
+Euclidean distance = 78.798621
+RMSE = 0.525324
+Mean absolute error = 0.210042
+ED / Norm_ref = 0.404909
+Relative % = 40.490861
+
+
+Error (0.1 and 0.5):
+Euclidean distance = 109.642579
+RMSE = 0.730951
+Mean absolute error = 0.404037
+ED / Norm_ref = 0.563401
+Relative % = 56.340103
+
+
+Error (0.1 adi and 0.1 explicit):
+Euclidean distance = 86.905708
+RMSE = 0.579371
+Mean absolute error = 0.250611
+ED / Norm_ref = 0.446567
+Relative % = 44.656707
+
+
