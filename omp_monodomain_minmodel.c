@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
     int L = 150;
     double delta_x = 1;
     double delta_y = 1;
-    double delta_t = 0.02;
+    double delta_t = 0.01;
     double delta_t_ode = 0.01;
 
     int M = T / delta_t;                // number of points in time
@@ -255,7 +255,33 @@ int main(int argc, char *argv[])
                     S[i][j] = S[i][j] + ds_dt * delta_t;
                     
                     // Diffusion (PDE)
-                    U[i][j] = U[i][j] + (delta_t * D) * ((U[i - 1][j] - 2 * U[i][j] + U[i + 1][j]) / delta_x / delta_x);
+                    // U[i][j] = U[i][j] + (delta_t * D) * ((U[i - 1][j] - 2 * U[i][j] + U[i + 1][j]) / delta_x / delta_x);
+                    // U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
+                }
+            }
+
+            // Diffusion (PDE) part
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(U, N_x, N_y, delta_t, D, delta_x, delta_y)
+
+            for (i = 1; i < N_x - 1; i++)
+            {
+                for (j = 1; j < N_y - 1; j++)
+                {
+                    U[i][j] = U[i][j] + ((delta_t * D) * (((U[i - 1][j] - 2 * U[i][j] + U[i + 1][j]) / delta_x / delta_x)));
+                    //U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
+                }
+            }
+
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(U, N_x, N_y, delta_t, D, delta_x, delta_y)
+
+            for (i = 1; i < N_x - 1; i++)
+            {
+                for (j = 1; j < N_y - 1; j++)
+                {
                     U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
                 }
             }
@@ -332,6 +358,14 @@ int main(int argc, char *argv[])
                 for (j = 1; j < N_y - 1; j++)
                 {
                     // ODEs
+                    /* # pragma omp parallel for num_threads(num_threads) default(none) \
+                    private(I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
+                    dv_dt, ds_dt, dw_dt, n_ode) \
+                    shared(i, j, n, U, V, W, S, N_x, N_y, M_ode, \
+                    u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
+                    tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
+                    u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
+                    delta_t, alpha, delta_t_ode, num_threads, t_app) */
                     for (n_ode = 0; n_ode < M_ode; n_ode++)
                     {
                         // Stimulus
@@ -477,7 +511,7 @@ int main(int argc, char *argv[])
     printf("\nElapsed time = %e seconds\n", elapsed);
     //printf("File complete ready with time dimension c = %d\n", count);
 
-    fclose(fp);
+    // fclose(fp);
     fclose(fp2);
 
     free(U);

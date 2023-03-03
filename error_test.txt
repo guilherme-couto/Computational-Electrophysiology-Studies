@@ -1,0 +1,8 @@
+Error (0.01 adi and 0.01 exp):
+Euclidean distance = 81.507403
+RMSE = 0.543383
+Mean absolute error = 0.220628
+ED / Norm_ref = 0.418875
+Relative % = 41.887543
+
+
