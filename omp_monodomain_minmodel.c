@@ -102,6 +102,47 @@ void thomas_algorithm(double *d, unsigned long N, double alpha)
     free(d_);
 }
 
+void thomas_algorithm_2(double *d, double *solution, unsigned long N, double alpha)
+{
+    // Auxiliary arrays
+    double *c_ = (double *)malloc((N-1) * sizeof(double));
+    double *d_ = (double *)malloc((N) * sizeof(double));
+
+    // Coefficients
+    double a = -alpha;          // subdiagonal
+    double b = 1 + alpha;       // diagonal (1st and last row)
+    double c = -alpha;          // superdiagonal
+
+    // 1st: update auxiliary arrays
+    c_[0] = c / b;
+    d_[0] = d[0] / b;
+
+    b = 1 + 2*alpha;
+
+    for (int i = 1; i <= N-2; i++)
+    {
+        c_[i] = c / (b - a * c_[i-1]);
+        d_[i] = (d[i] - a * d_[i-1]) / (b - a * c_[i-1]);
+    }
+
+    b = 1 + alpha;
+    d_[N-1] = (d[N-1] - a * d_[N-2]) / (b - a * c_[N-2]);
+
+    // 2nd: update solution
+    solution[N-1] = d_[N-1];
+    //d[N-2] = d_[N-3];
+
+    for (int i = N-2; i >= 0; i--)
+    {
+        solution[i] = d_[i] - c_[i] * solution[i+1];
+        //d[i] = d_[i-1] - c_[i-1] * d[i+1];
+    }
+
+    // Free memory
+    free(c_);
+    free(d_);
+}
+
 int main(int argc, char *argv[])
 {
     int num_threads;
@@ -141,16 +182,29 @@ int main(int argc, char *argv[])
 
     // Parameters
     double **U = (double **)malloc(N_x * sizeof(double *));
+    double **U_old = (double **)malloc(N_x * sizeof(double *));
+    double **U_temp = (double **)malloc(N_x * sizeof(double *));
     double **V = (double **)malloc(N_x * sizeof(double *));
     double **W = (double **)malloc(N_x * sizeof(double *));
     double **S = (double **)malloc(N_x * sizeof(double *));
+    double **solution = (double **)malloc((N_x-2) * sizeof(double)); // for thomas algorithm
+    double **r = (double **)malloc((N_x-2) * sizeof(double *)); // for thomas algorithm
 
     for (int i = 0; i < N_x; i++)
     {
         U[i] = (double *)malloc(N_y * sizeof(double));
+        U_old[i] = (double *)malloc(N_y * sizeof(double));
+        U_temp[i] = (double *)malloc(N_y * sizeof(double));
         V[i] = (double *)malloc(N_y * sizeof(double));
         W[i] = (double *)malloc(N_y * sizeof(double));
         S[i] = (double *)malloc(N_y * sizeof(double));
+    }
+
+    // Right-hand side
+    for (int i = 0; i < N_x-2; i++)
+    {
+        r[i] = (double *)malloc((N_y-2) * sizeof(double));
+        solution[i] = (double *)malloc((N_y-2) * sizeof(double));
     }
 
     double J_fi, J_so, J_si, J = 0, I_app;
@@ -164,6 +218,8 @@ int main(int argc, char *argv[])
         for (int j = 0; j < N_y; j++)
         {
             U[i][j] = 0; // i: x-axis, j: y-axis
+            U_old[i][j] = 0; // i: x-axis, j: y-axis
+            U_temp[i][j] = 0; // i: x-axis, j: y-axis
             V[i][j] = 1;
             W[i][j] = 1;
             S[i][j] = 0;
@@ -171,7 +227,7 @@ int main(int argc, char *argv[])
     }
 
     // Subdiagonal, diagonal and superdiagonal of the tridiagonal matrix (Implicit Method)
-    double alpha = (D * delta_t) / (2 * delta_x * delta_x);
+    double alpha = (D * delta_t) / ( delta_x * delta_x);
 
     // Ask for input
     char method;
@@ -187,7 +243,7 @@ int main(int argc, char *argv[])
     int n, n_ode;
     int t_app = 2 / delta_t;
 
-    // Open the file to write
+    // Open the file to write for complete gif
     /* FILE *fp_all = NULL;
     fp_all = fopen("omp-mono-all.txt", "w");
     int count = 0; */
@@ -210,11 +266,11 @@ int main(int argc, char *argv[])
 
             # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j, I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
-            dv_dt, ds_dt, dw_dt ) \
-            shared(t_app, n, n_ode, U, V, W, S, N_x, N_y, M, M_ode, \
+            dv_dt, ds_dt, dw_dt) \
+            shared(t_app, n, U, U_old, U_temp, V, W, S, N_x, N_y, M, \
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
-            u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, D, \
+            u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
             delta_t, delta_x, delta_y)
 
             for (i = 1; i < N_x - 1; i++)
@@ -229,60 +285,89 @@ int main(int argc, char *argv[])
                     else
                         I_app = 0;
 
-                    tau_vminus = (1 - H(U[i][j], theta_vminus)) * tau_v1minus + H(U[i][j], theta_vminus) * tau_v2minus;
-                    tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U[i][j] - u_wminus))) / 2;
-                    tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U[i][j] - u_so))) / 2;
-                    tau_s = (1 - H(U[i][j], theta_w)) * tau_s1 + H(U[i][j], theta_w) * tau_s2;
-                    tau_o = (1 - H(U[i][j], theta_o)) * tau_o1 + H(U[i][j], theta_o) * tau_o2;
+                    tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
+                    tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U_old[i][j] - u_wminus))) / 2;
+                    tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U_old[i][j] - u_so))) / 2;
+                    tau_s = (1 - H(U_old[i][j], theta_w)) * tau_s1 + H(U_old[i][j], theta_w) * tau_s2;
+                    tau_o = (1 - H(U_old[i][j], theta_o)) * tau_o1 + H(U_old[i][j], theta_o) * tau_o2;
 
-                    J_fi = -V[i][j] * H(U[i][j], theta_v) * (U[i][j] - theta_v) * (u_u - U[i][j]) / tau_fi;
-                    J_so = (U[i][j] - u_o) * ((1 - H(U[i][j], theta_w)) / tau_o) + (H(U[i][j], theta_w) / tau_so);
-                    J_si = -H(U[i][j], theta_w) * W[i][j] * S[i][j] / tau_si;
+                    J_fi = -V[i][j] * H(U_old[i][j], theta_v) * (U_old[i][j] - theta_v) * (u_u - U_old[i][j]) / tau_fi;
+                    J_so = (U_old[i][j] - u_o) * ((1 - H(U_old[i][j], theta_w)) / tau_o) + (H(U_old[i][j], theta_w) / tau_so);
+                    J_si = -H(U_old[i][j], theta_w) * W[i][j] * S[i][j] / tau_si;
                     J = J_fi + J_so + J_si;
 
-                    v_inf = v_inf_function(U[i][j], theta_vminus);
-                    w_inf = (1 - H(U[i][j], theta_o)) * (1 - U[i][j] / tau_winf) + H(U[i][j], theta_o) * w_infstar;
+                    v_inf = v_inf_function(U_old[i][j], theta_vminus);
+                    w_inf = (1 - H(U_old[i][j], theta_o)) * (1 - U_old[i][j] / tau_winf) + H(U_old[i][j], theta_o) * w_infstar;
 
                     du_dt = -J + I_app;
-                    dv_dt = (1 - H(U[i][j], theta_v)) * (v_inf - V[i][j]) / tau_vminus - H(U[i][j], theta_v) * V[i][j] / tau_vplus;
-                    dw_dt = (1 - H(U[i][j], theta_w)) * (w_inf - W[i][j]) / tau_wminus - H(U[i][j], theta_w) * W[i][j] / tau_wplus;
-                    ds_dt = ((1 + tanh(k_s * (U[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
+                    dv_dt = (1 - H(U_old[i][j], theta_v)) * (v_inf - V[i][j]) / tau_vminus - H(U_old[i][j], theta_v) * V[i][j] / tau_vplus;
+                    dw_dt = (1 - H(U_old[i][j], theta_w)) * (w_inf - W[i][j]) / tau_wminus - H(U_old[i][j], theta_w) * W[i][j] / tau_wplus;
+                    ds_dt = ((1 + tanh(k_s * (U_old[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
 
                     // Update variables
-                    U[i][j] = U[i][j] + du_dt * delta_t;
+                    U_temp[i][j] = U_old[i][j] + du_dt * delta_t;
                     V[i][j] = V[i][j] + dv_dt * delta_t;
                     W[i][j] = W[i][j] + dw_dt * delta_t;
                     S[i][j] = S[i][j] + ds_dt * delta_t;
-                    
-                    // Diffusion (PDE)
-                    // U[i][j] = U[i][j] + (delta_t * D) * ((U[i - 1][j] - 2 * U[i][j] + U[i + 1][j]) / delta_x / delta_x);
-                    // U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
                 }
+            }
+
+            // Boundary Conditions y-axis
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i) \
+            shared(U_temp, N_x, N_y)
+
+            for (i = 0; i < N_x; i++)
+            {
+                U_temp[i][0] = U_temp[i][1];
+                U_temp[i][N_y - 1] = U_temp[i][N_y - 2];
+            }
+            
+            // Boundary Conditions x-axis
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(j) \
+            shared(U_temp, N_x, N_y)
+
+            for (j = 0; j < N_y; j++)
+            {
+                U_temp[0][j] = U_temp[1][j];
+                U_temp[N_x - 1][j] = U_temp[N_x - 2][j];
             }
 
             // Diffusion (PDE) part
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(U, N_x, N_y, delta_t, D, delta_x, delta_y)
-
+            shared(U, U_temp, N_x, N_y, delta_t, D, delta_x, delta_y)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
                 {
-                    U[i][j] = U[i][j] + ((delta_t * D) * (((U[i - 1][j] - 2 * U[i][j] + U[i + 1][j]) / delta_x / delta_x)));
-                    //U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
+                    U[i][j] = U_temp[i][j] + (delta_t * D) * ((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x));
+                    // U[i][j] = U[i][j] + (delta_t * D) * ((U_temp[i][j - 1] - 2 * U_temp[i][j] + U_temp[i][j + 1]) / (delta_y * delta_y));
+                    // U[i][j] = U_temp[i][j] + (delta_t * D) * (((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x)) + ((U_temp[i][j - 1] - 2 * U_temp[i][j] + U_temp[i][j + 1]) / (delta_y * delta_y)));
                 }
             }
 
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(U, N_x, N_y, delta_t, D, delta_x, delta_y)
-
+            shared(U, U_temp, N_x, N_y, delta_t, D, delta_x, delta_y)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
                 {
-                    U[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / delta_y / delta_y);
+                    U_temp[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / (delta_y * delta_y));
+                }
+            }
+
+            // Update U
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(U, U_temp, N_x, N_y)
+            for (i = 1; i < N_x - 1; i++)
+            {
+                for (j = 1; j < N_y - 1; j++)
+                {
+                    U[i][j] = U_temp[i][j];
                 }
             }
 
@@ -306,6 +391,19 @@ int main(int argc, char *argv[])
             {
                 U[0][j] = U[1][j];
                 U[N_x - 1][j] = U[N_x - 2][j];
+            }
+
+            // Update U_old
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(U, U_old, N_x, N_y)
+
+            for (i = 0; i < N_x; i++)
+            {
+                for (j = 0; j < N_y; j++)
+                {
+                    U_old[i][j] = U[i][j];
+                }
             }
 
             // Write to file
@@ -348,24 +446,16 @@ int main(int argc, char *argv[])
             # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j, I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
             dv_dt, ds_dt, dw_dt, n_ode) \
-            shared(n, U, V, W, S, N_x, N_y, M_ode, \
+            shared(n, U_old, U_temp, V, W, S, N_x, N_y, M_ode, \
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
             u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t, alpha, delta_t_ode, num_threads, t_app)
+            delta_t_ode, num_threads, t_app)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
                 {
                     // ODEs
-                    /* # pragma omp parallel for num_threads(num_threads) default(none) \
-                    private(I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
-                    dv_dt, ds_dt, dw_dt, n_ode) \
-                    shared(i, j, n, U, V, W, S, N_x, N_y, M_ode, \
-                    u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
-                    tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
-                    u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-                    delta_t, alpha, delta_t_ode, num_threads, t_app) */
                     for (n_ode = 0; n_ode < M_ode; n_ode++)
                     {
                         // Stimulus
@@ -375,85 +465,86 @@ int main(int argc, char *argv[])
                             I_app = 0;
 
                         // Calculate J (I_ion) functions
-                        tau_vminus = (1 - H(U[i][j], theta_vminus)) * tau_v1minus + H(U[i][j], theta_vminus) * tau_v2minus;
-                        tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U[i][j] - u_wminus))) / 2;
-                        tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U[i][j] - u_so))) / 2;
-                        tau_s = (1 - H(U[i][j], theta_w)) * tau_s1 + H(U[i][j], theta_w) * tau_s2;
-                        tau_o = (1 - H(U[i][j], theta_o)) * tau_o1 + H(U[i][j], theta_o) * tau_o2;
+                        tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
+                        tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U_old[i][j] - u_wminus))) / 2;
+                        tau_so = tau_so1 + (tau_so2 - tau_so1) * (1 + tanh(k_so * (U_old[i][j] - u_so))) / 2;
+                        tau_s = (1 - H(U_old[i][j], theta_w)) * tau_s1 + H(U_old[i][j], theta_w) * tau_s2;
+                        tau_o = (1 - H(U_old[i][j], theta_o)) * tau_o1 + H(U_old[i][j], theta_o) * tau_o2;
 
-                        J_fi = -V[i][j] * H(U[i][j], theta_v) * (U[i][j] - theta_v) * (u_u - U[i][j]) / tau_fi;
-                        J_so = (U[i][j] - u_o) * ((1 - H(U[i][j], theta_w)) / tau_o) + (H(U[i][j], theta_w) / tau_so);
-                        J_si = -H(U[i][j], theta_w) * W[i][j] * S[i][j] / tau_si;
+                        J_fi = -V[i][j] * H(U_old[i][j], theta_v) * (U_old[i][j] - theta_v) * (u_u - U_old[i][j]) / tau_fi;
+                        J_so = (U_old[i][j] - u_o) * ((1 - H(U_old[i][j], theta_w)) / tau_o) + (H(U_old[i][j], theta_w) / tau_so);
+                        J_si = -H(U_old[i][j], theta_w) * W[i][j] * S[i][j] / tau_si;
                         J = J_fi + J_so + J_si;
 
-                        v_inf = v_inf_function(U[i][j], theta_vminus);
-                        w_inf = (1 - H(U[i][j], theta_o)) * (1 - U[i][j] / tau_winf) + H(U[i][j], theta_o) * w_infstar;
+                        v_inf = v_inf_function(U_old[i][j], theta_vminus);
+                        w_inf = (1 - H(U_old[i][j], theta_o)) * (1 - U_old[i][j] / tau_winf) + H(U_old[i][j], theta_o) * w_infstar;
 
                         du_dt = -J + I_app;
-                        dv_dt = (1 - H(U[i][j], theta_v)) * (v_inf - V[i][j]) / tau_vminus - H(U[i][j], theta_v) * V[i][j] / tau_vplus;
-                        dw_dt = (1 - H(U[i][j], theta_w)) * (w_inf - W[i][j]) / tau_wminus - H(U[i][j], theta_w) * W[i][j] / tau_wplus;
-                        ds_dt = ((1 + tanh(k_s * (U[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
+                        dv_dt = (1 - H(U_old[i][j], theta_v)) * (v_inf - V[i][j]) / tau_vminus - H(U_old[i][j], theta_v) * V[i][j] / tau_vplus;
+                        dw_dt = (1 - H(U_old[i][j], theta_w)) * (w_inf - W[i][j]) / tau_wminus - H(U_old[i][j], theta_w) * W[i][j] / tau_wplus;
+                        ds_dt = ((1 + tanh(k_s * (U_old[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
 
                         // Potential (u)
-                        U[i][j] = U[i][j] + delta_t_ode * du_dt;
+                        U_temp[i][j] = U_old[i][j] + delta_t_ode * du_dt;
 
                         // Update gating variables (v, w, s)
                         V[i][j] = V[i][j] + delta_t_ode * dv_dt;
                         W[i][j] = W[i][j] + delta_t_ode * dw_dt;
                         S[i][j] = S[i][j] + delta_t_ode * ds_dt;
                     }
-                    U[i][j] = U[i][j] + (alpha * (U[i][j - 1] - 2*U[i][j] + U[i][j + 1]));
                 }
             }
 
+            // Diffusion (y-axis)
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(r, U_temp, N_x, N_y)
+            for (i = 1; i < N_x-1; i++)
+                for (j = 1; j < N_y-1; j++)
+                    r[i-1][j-1] = U_temp[j][i];
+
             // Solve tridiagonal matrix (Linear system) for x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i) \
-            shared(N_x, N_y, U, alpha)
+            private(i, j) \
+            shared(N_x, N_y, U_temp, alpha, r, solution)
             for (i = 1; i < N_x-1; i++)
-                thomas_algorithm(U[i], N_y, alpha);
-            
-            // Boundary Conditions x-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(j) \
-            shared(U, N_x, N_y)
-            for (j = 0; j < N_y; j++)
             {
-                U[0][j] = U[1][j];
-                U[N_x - 1][j] = U[N_x - 2][j];
-            }
-
-            // Boundary Conditions y-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i) \
-            shared(U, N_x, N_y)
-            for (i = 0; i < N_x; i++)
-            {
-                U[i][0] = U[i][1];
-                U[i][N_y - 1] = U[i][N_y - 2];
+                // Solve tridiagonal matrix
+                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha);
+                
+                // Copy solution
+                for (j = 1; j < N_y-1; j++)
+                    U_temp[j][i] = solution[i-1][j-1];
             }
 
             // STEP 2: explicit in x, implicit in y on interval [t_n+(1/2), t_n+1]
 
             # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(U, N_x, N_y, alpha)
+            shared(U_temp, N_x, N_y, r)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
                 {
                     // Potential (u)
-                    U[i][j] = U[i][j] + (alpha * (U[i-1][j] - 2*U[i][j] + U[i+1][j]));
+                    r[i-1][j-1] = U_temp[i][j];
                 }
             }
 
             // Solve tridiagonal matrix (Linear system) for y-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i) \
-            shared(U, N_x, N_y, alpha)
+            private(i, j) \
+            shared(U, N_x, N_y, alpha, r, solution)
             for (i = 1; i < N_x-1; i++)
-                thomas_algorithm(U[i], N_y, alpha);
-            
+            {
+                // Solve tridiagonal matrix
+                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha);
+
+                // Copy solution
+                for (j = 1; j < N_y-1; j++)
+                    U[i][j] = solution[i-1][j-1];
+            }
+
             // Boundary Conditions x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(j) \
@@ -473,6 +564,15 @@ int main(int argc, char *argv[])
                 U[i][0] = U[i][1];
                 U[i][N_y - 1] = U[i][N_y - 2];
             }
+
+            // Update U_old
+            # pragma omp parallel for num_threads(num_threads) default(none) \
+            private(i, j) \
+            shared(U, U_old, N_x, N_y)
+            for (i = 0; i < N_x; i++)
+                for (j = 0; j < N_y; j++)
+                    U_old[i][j] = U[i][j];
+           
 
             // Error analysis
             // Write to file
@@ -488,7 +588,7 @@ int main(int argc, char *argv[])
             }
             
             // Write to file
-            /* if (n % 10 == 0)
+            /* if (n % 100 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -515,6 +615,10 @@ int main(int argc, char *argv[])
     fclose(fp2);
 
     free(U);
+    free(U_old);
+    free(U_temp);
+    free(r);
+    free(solution);
     free(V);
     free(W);
     free(S);
