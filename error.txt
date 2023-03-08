@@ -1,0 +1,64 @@
+Error (EXP with dt = 0.01 and ADI with dt = 0.01):
+Euclidean distance = 15.826486
+RMSE = 0.105510
+Mean absolute error = 0.015465
+ED / Norm_ref = 0.088603
+Relative % = 8.860348
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.02):
+Euclidean distance = 21.900725
+RMSE = 0.146005
+Mean absolute error = 0.022950
+ED / Norm_ref = 0.122610
+Relative % = 12.260969
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.03):
+Euclidean distance = 24.938883
+RMSE = 0.166259
+Mean absolute error = 0.028550
+ED / Norm_ref = 0.139619
+Relative % = 13.961860
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.04):
+Euclidean distance = 29.496058
+RMSE = 0.196640
+Mean absolute error = 0.196640
+ED / Norm_ref = 0.165132
+Relative % = 16.513164
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.05):
+Euclidean distance = 32.582514
+RMSE = 0.217217
+Mean absolute error = 0.042493
+ED / Norm_ref = 0.182411
+Relative % = 18.241094
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.1):
+Euclidean distance = 42.462828
+RMSE = 0.283086
+Mean absolute error = 0.066087
+ED / Norm_ref = 0.237725
+Relative % = 23.772519
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.2):
+Euclidean distance = 47.240365
+RMSE = 0.314936
+Mean absolute error = 0.080052
+ED / Norm_ref = 0.264472
+Relative % = 26.447190
+
+
+Error (EXP with dt = 0.01 and ADI dt = 0.5):
+Euclidean distance = 77.962175
+RMSE = 0.519748
+Mean absolute error = 0.202153
+ED / Norm_ref = 0.436466
+Relative % = 43.646583
+
+

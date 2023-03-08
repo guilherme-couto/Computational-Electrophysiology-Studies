@@ -163,11 +163,11 @@ int main(int argc, char *argv[])
     printf("The number of threads is %d\n", num_threads);
 
     // Discretization
-    int T = 100;
-    int L = 150;
+    int T = 1000;
+    int L = 300;
     double delta_x = 1;
     double delta_y = 1;
-    double delta_t = 0.01;
+    double delta_t = 0.05;
     double delta_t_ode = 0.01;
 
     int M = T / delta_t;                // number of points in time
@@ -244,14 +244,12 @@ int main(int argc, char *argv[])
     int t_app = 2 / delta_t;
 
     // Open the file to write for complete gif
-    /* FILE *fp_all = NULL;
+    FILE *fp_all = NULL;
     fp_all = fopen("omp-mono-all.txt", "w");
-    int count = 0; */
+    int count = 0;
 
-    FILE *fp = NULL, *fp2 = NULL;
-    fp = fopen("mono_test_exp.txt", "w");
-    fp2 = fopen("mono_test_adi.txt", "w");
-    //fp = fopen("minmodel_times.txt", "a");
+    FILE *fp = NULL;
+    fp = fopen("times.txt", "a");
 
     // Start timer
     double start, finish, elapsed;
@@ -342,32 +340,9 @@ int main(int argc, char *argv[])
             {
                 for (j = 1; j < N_y - 1; j++)
                 {
-                    U[i][j] = U_temp[i][j] + (delta_t * D) * ((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x));
+                    // U[i][j] = U_temp[i][j] + (delta_t * D) * ((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x));
                     // U[i][j] = U[i][j] + (delta_t * D) * ((U_temp[i][j - 1] - 2 * U_temp[i][j] + U_temp[i][j + 1]) / (delta_y * delta_y));
-                    // U[i][j] = U_temp[i][j] + (delta_t * D) * (((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x)) + ((U_temp[i][j - 1] - 2 * U_temp[i][j] + U_temp[i][j + 1]) / (delta_y * delta_y)));
-                }
-            }
-
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U, U_temp, N_x, N_y, delta_t, D, delta_x, delta_y)
-            for (i = 1; i < N_x - 1; i++)
-            {
-                for (j = 1; j < N_y - 1; j++)
-                {
-                    U_temp[i][j] = U[i][j] + (delta_t * D) * ((U[i][j - 1] - 2 * U[i][j] + U[i][j + 1]) / (delta_y * delta_y));
-                }
-            }
-
-            // Update U
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U, U_temp, N_x, N_y)
-            for (i = 1; i < N_x - 1; i++)
-            {
-                for (j = 1; j < N_y - 1; j++)
-                {
-                    U[i][j] = U_temp[i][j];
+                    U[i][j] = U_temp[i][j] + (delta_t * D) * (((U_temp[i - 1][j] - 2 * U_temp[i][j] + U_temp[i + 1][j]) / (delta_x * delta_x)) + ((U_temp[i][j - 1] - 2 * U_temp[i][j] + U_temp[i][j + 1]) / (delta_y * delta_y)));
                 }
             }
 
@@ -421,7 +396,7 @@ int main(int argc, char *argv[])
 
             // Write to file
             // Error analysis
-            if (n * delta_t == 42)
+            /* if (n * delta_t == 42)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -431,7 +406,7 @@ int main(int argc, char *argv[])
                     }
                     
                 }
-            }
+            } */
         }
     }
     else if (method == 'a' || method == 'A')
@@ -459,7 +434,7 @@ int main(int argc, char *argv[])
                     for (n_ode = 0; n_ode < M_ode; n_ode++)
                     {
                         // Stimulus
-                        if (n >= 0 && n <= t_app && j > 0 && j < 10)
+                        if ((n >= 0 && n <= t_app && j > 0 && j < 10) || (n >= 10170 && n <= 10180 && j > 0 && j < 150 && i > 150 && i < 300))
                             I_app = 1;
                         else
                             I_app = 0;
@@ -485,7 +460,7 @@ int main(int argc, char *argv[])
                         ds_dt = ((1 + tanh(k_s * (U_old[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
 
                         // Potential (u)
-                        U_temp[i][j] = U_old[i][j] + delta_t_ode * du_dt;
+                        U_old[i][j] = U_old[i][j] + delta_t_ode * du_dt;
 
                         // Update gating variables (v, w, s)
                         V[i][j] = V[i][j] + delta_t_ode * dv_dt;
@@ -498,10 +473,10 @@ int main(int argc, char *argv[])
             // Diffusion (y-axis)
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(r, U_temp, N_x, N_y)
+            shared(r, U_old, N_x, N_y)
             for (i = 1; i < N_x-1; i++)
                 for (j = 1; j < N_y-1; j++)
-                    r[i-1][j-1] = U_temp[j][i];
+                    r[i-1][j-1] = U_old[j][i];
 
             // Solve tridiagonal matrix (Linear system) for x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
@@ -576,19 +551,19 @@ int main(int argc, char *argv[])
 
             // Error analysis
             // Write to file
-            if (n*delta_t == 42)
+            /* if (n*delta_t == 42)
             {
                 for (int i = 0; i < N_x; i++)
                 {
                     for (int j = 0; j < N_y; j++)
                     {
-                        fprintf(fp2, "%lf\n", U[i][j]);
+                        fprintf(fp, "%lf\n", U[i][j]);
                     }
                 }
-            }
+            } */
             
             // Write to file
-            /* if (n % 100 == 0)
+            if (n % 100 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -598,7 +573,7 @@ int main(int argc, char *argv[])
                     }
                 }
                 count++;
-            } */
+            }
         }
     }
 
@@ -606,13 +581,13 @@ int main(int argc, char *argv[])
     finish = omp_get_wtime();
     elapsed = finish - start;
 
-    //fprintf(fp, "%e\n", elapsed);
+    /* fprintf(fp, "\nADI %.2f:\n", delta_t);
+    fprintf(fp, "%e\n", elapsed); */
 
     printf("\nElapsed time = %e seconds\n", elapsed);
     //printf("File complete ready with time dimension c = %d\n", count);
 
-    // fclose(fp);
-    fclose(fp2);
+    fclose(fp_all);
 
     free(U);
     free(U_old);
