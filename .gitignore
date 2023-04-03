@@ -1,6 +1,7 @@
 *.png
-
-
+*.txt
+*.gif
+*.ipynb
 
 # Prerequisites
 *.d
