@@ -6,35 +6,35 @@
 #include <stdbool.h>
 #include <omp.h>
 
-// Parameters to reproduce midmyocardial cell
+// Parameters to reproduce epicardial cell
 double u_o = 0;
-double u_u = 1.61;
+double u_u = 1.55;
 double theta_v = 0.3;
 double theta_w = 0.13;
-double theta_vminus = 0.1;
-double theta_o = 0.005;
-double tau_v1minus = 80;
-double tau_v2minus = 1.4506;
+double theta_vminus = 0.006;
+double theta_o = 0.006;
+double tau_v1minus = 60;
+double tau_v2minus = 1150;
 double tau_vplus = 1.4506;
-double tau_w1minus = 70;
-double tau_w2minus = 8;
-double k_wminus = 200;
-double u_wminus = 0.016;
-double tau_wplus = 280;
-double tau_fi = 0.078;
-double tau_o1 = 410;
-double tau_o2 = 7;
-double tau_so1 = 91;
-double tau_so2 = 0.8;
-double k_so = 2.1;
-double u_so = 0.6;
+double tau_w1minus = 60;
+double tau_w2minus = 15;
+double k_wminus = 65;
+double u_wminus = 0.03;
+double tau_wplus = 200;
+double tau_fi = 0.11;
+double tau_o1 = 400;
+double tau_o2 = 6;
+double tau_so1 = 30.0181;
+double tau_so2 = 0.9957;
+double k_so = 2.0458;
+double u_so = 0.65;
 double tau_s1 = 2.7342;
-double tau_s2 = 4;
+double tau_s2 = 16;
 double k_s = 2.0994;
 double u_s = 0.9087;
-double tau_si = 3.3849;
-double tau_winf = 0.01;
-double w_infstar = 0.5;
+double tau_si = 1.8875;
+double tau_winf = 0.07;
+double w_infstar = 0.94;
 
 double D = 1.171; // +- 0.0221 cm^2/s  human ventricular diffusion coefficient
 
@@ -163,8 +163,8 @@ int main(int argc, char *argv[])
     printf("The number of threads is %d\n", num_threads);
 
     // Discretization
-    int T = 1000;
-    int L = 300;
+    int T = 800;
+    int L = 500;
     double delta_x = 1;
     double delta_y = 1;
     double delta_t = 0.05;
@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
                     for (n_ode = 0; n_ode < M_ode; n_ode++)
                     {
                         // Stimulus
-                        if ((n >= 0 && n <= t_app && j > 0 && j < 10) || (n >= 10170 && n <= 10180 && j > 0 && j < 150 && i > 150 && i < 300))
+                        if ((n >= 0 && n <= t_app && j > 0 && j < 10) || (n >= 6500 && n <= 6540 && j > 0 && j < 250 && i > 250 && i < 500))
                             I_app = 1;
                         else
                             I_app = 0;
